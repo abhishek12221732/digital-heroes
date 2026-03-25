@@ -1,7 +1,9 @@
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import AdminDrawEngine from '@/components/AdminDrawEngine';
 import LogoutButton from '@/components/LogoutButton';
+import { approvePayout } from '@/app/actions/verification';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,17 +17,23 @@ export default async function AdminDashboard() {
   const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
   if (profile?.role !== 'admin') redirect('/dashboard');
 
-  // Fetch Analytics 
+  // Initialize the Master Key client to bypass RLS for dashboard stats
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Fetch Analytics using supabaseAdmin (Master Key) instead of the standard client
   const [
     { count: totalUsers },
     { count: activeSubscribers },
     { data: recentDraws },
     { data: pendingVerifications }
   ] = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }),
-    supabase.from('users').select('*', { count: 'exact', head: true }).eq('sub_status', 'active'),
-    supabase.from('draws').select('*').order('created_at', { ascending: false }).limit(3),
-    supabase.from('winners').select('id, user_id, match_type, prize_amount').eq('payout_status', 'pending')
+    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
+    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).eq('sub_status', 'active'),
+    supabaseAdmin.from('draws').select('*').order('created_at', { ascending: false }).limit(3),
+    supabaseAdmin.from('winners').select('id, user_id, match_type, prize_amount').eq('payout_status', 'pending')
   ]);
 
   return (
@@ -85,11 +93,17 @@ export default async function AdminDashboard() {
                         <p className="font-medium text-gray-900">User ID: {winner.user_id.substring(0,8)}...</p>
                         <p className="text-sm text-gray-500">{winner.match_type}-Number Match</p>
                       </div>
+                      {/* REPLACED THIS SECTION */}
                       <div className="flex items-center gap-4">
                         <span className="font-semibold text-emerald-600">${winner.prize_amount}</span>
-                        <button className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg font-medium hover:bg-indigo-100">
-                          Review Proof
-                        </button>
+                        <form action={async () => {
+                          'use server';
+                          await approvePayout(winner.id);
+                        }}>
+                          <button type="submit" className="text-sm bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg font-medium hover:bg-indigo-100 transition-colors">
+                            Mark as Paid
+                          </button>
+                        </form>
                       </div>
                     </div>
                   ))}
