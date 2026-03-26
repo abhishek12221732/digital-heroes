@@ -15,17 +15,21 @@ export default function AdminDrawEngine() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // Default to the first of the current month for the draw date
+  // Track which logic was used in the simulation
+  const [lastLogic, setLastLogic] = useState<'random' | 'algorithmic'>('random');
+  
   const [drawMonth, setDrawMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
   });
 
-  const handleDraw = (logicType: 'random' | 'algorithmic', isSimulation: boolean) => {
+  const handleDraw = (logicType: 'random' | 'algorithmic', isSimulation: boolean, predefinedNumbers?: number[]) => {
     setError(null);
+    if (isSimulation) setLastLogic(logicType);
+
     startTransition(async () => {
       try {
-        const res = await executeDraw(drawMonth, logicType, isSimulation);
+        const res = await executeDraw(drawMonth, logicType, isSimulation, predefinedNumbers);
         setResult(res);
         if (!isSimulation) {
           alert("Draw officially published and winners recorded!");
@@ -69,7 +73,6 @@ export default function AdminDrawEngine() {
         </button>
       </div>
 
-      {/* Simulation Results Display */}
       {result && (
         <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
           <div className="flex justify-between items-center mb-4">
@@ -109,7 +112,8 @@ export default function AdminDrawEngine() {
           </div>
 
           <button
-            onClick={() => handleDraw('random', false)} // Note: You'd ideally store which logic was simulated to pass here
+            // FIX: We now pass the exact numbers from the simulation to the publisher
+            onClick={() => handleDraw(lastLogic, false, result.winningNumbers)} 
             disabled={isPending}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition-colors shadow-sm"
           >
