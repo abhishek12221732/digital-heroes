@@ -116,7 +116,7 @@ npm install
 Create a .env.local file in the root directory:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_key
 ```
 ### 4. Run the Development Server
